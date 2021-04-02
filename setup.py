@@ -18,5 +18,5 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     python_requires=">=3.6",
     install_requires=dependencies,
-    license="MIT",
+    license="Apache 2.0",
 )
