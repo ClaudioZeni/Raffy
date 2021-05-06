@@ -23,8 +23,7 @@ class NpEncoder(json.JSONEncoder):
 class LinearPotential():
 
     def __init__(self, n_bodies=3, ns=4, ls=6, cutoff=None,
-                 species=None, add_squares=False, basis='bessel',
-                 alchemy=[]):
+                 species=None, add_squares=False, basis='bessel'):
         self.n_bodies = n_bodies
         self.ns = ns
         self.ls = ls
@@ -34,7 +33,6 @@ class LinearPotential():
         self.n_species = len(species)
         self.add_squares = add_squares
         self.basis = basis
-        self.alchemy = alchemy
 
         if self.n_bodies == '2.5':
             self.g_func = cd.GvectSB(self.rc, self.ns, self.ls, self.species,

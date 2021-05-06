@@ -73,7 +73,7 @@ def compute_F1_coefficient(ns, radial_cutoff):
     rad_base = np.arange(ns)
     F1_coeff = (-1)**rad_base * np.sqrt(2) * np.pi / radial_cutoff**(3 / 2)
     F1_coeff *= (rad_base + 1) * (rad_base + 2) / \
-        np.sqrt((rad_base+1)**2 * (rad_base+2)**2)
+        np.sqrt((rad_base+1)**2 + (rad_base+2)**2)
 
     return F1_coeff
 
@@ -207,8 +207,8 @@ def radial_scaled_chebyshev(rs, rad_base, radial_cutoff, Tk, lam=5):
 
 
 def radial_chebyshev(rs, rad_base, radial_cutoff, Tk):
-    x = rs/radial_cutoff
-    dx = 1/radial_cutoff
+    x = 2*(rs/radial_cutoff - 0.5)
+    dx = 2/radial_cutoff
     g2 = (1 + np.cos(np.pi*rs/radial_cutoff))/2
     dg2 = -np.sin(np.pi*rs/radial_cutoff)*np.pi/radial_cutoff/2
 
