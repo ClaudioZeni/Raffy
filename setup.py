@@ -10,7 +10,7 @@ with open("requirements.txt", "r") as fh:
 setuptools.setup(
     name="raffy",
     packages=setuptools.find_packages(),
-    version="0.0.1",
+    version="0.1",
     author="Claudio Zeni",
     author_email="czeni@sissa.it",
     description="Ridge-regression Atomistic Force Fields in PYthon",
