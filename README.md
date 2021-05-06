@@ -6,7 +6,7 @@ The force fields are trained using ridge regression on local atomic environment 
 
 To install the package, clone the repository and run the following command from the main folder:
 
-  pip install .
+    pip install .
 
 The package uses ASE to handle .xyz files, FLARE to handle local atomic environments, NUMPY and SCIPY for fast computation, and RAY for multiprocessing.
 
