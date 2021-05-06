@@ -6,6 +6,8 @@ from scipy.linalg import cho_solve, cholesky
 from sklearn.decomposition import PCA
 
 from . import compute_descriptors as cd
+from . import utils as ut
+from flare import struc
 
 
 class NpEncoder(json.JSONEncoder):
@@ -94,7 +96,8 @@ class LinearPotential():
         return g, dg
 
     def fit(self, X, Y=None, Y_en=None, noise=1e-8,
-            g=None, dg=None, ncores=1, pca_comps=None):
+            g=None, dg=None, ncores=1, pca_comps=None,
+            compute_forces=True):
 
         self.noise = noise
         if pca_comps is not None:
@@ -103,12 +106,10 @@ class LinearPotential():
         else:
             self.use_pca = False
 
-        if Y is None and dg is None:
-            compute_forces = False
-        else:
-            compute_forces = True
+        if (type(X) == list and type(X[0]) == struc.Structure):
+            Y, Y_en = ut.extract_info(X)
 
-        Y = reshape_forces(Y)
+        Y = ut.reshape_forces(Y)
         g, dg = self.get_g(X, g, dg, compute_forces, ncores, train_pca=True)
 
         if compute_forces:
@@ -143,7 +144,7 @@ class LinearPotential():
     def fit_local(self, X, Y, g, dg, noise=1e-8):
         self.noise = noise
         dg = np.reshape(dg, (dg.shape[0]*3, dg.shape[2]))
-        Y = reshape_forces(Y)
+        Y = ut.reshape_forces(Y)
         g_tot = -dg
         Y_tot = Y
         # ftf shape is (S, S)
@@ -223,20 +224,3 @@ class LinearPotential():
             parameters['alpha_filename'], allow_pickle=True)
 
         return new_potential
-
-
-def reshape_forces(Y):
-    # reshape training forces if needed
-    if Y is not None:
-        if len(Y.shape) != 1 or Y.shape[-1] != 3:
-            # Y must have shape Nenv*3
-            try:
-                Y = Y.reshape((np.prod(Y.shape[:-1]) * 3))
-            except TypeError:
-                Y_ = []
-                for a in Y:
-                    Y_.extend(a)
-                Y = np.array(Y_)
-                Y = Y.reshape((np.prod(Y.shape[:-1]) * 3))
-
-    return Y
