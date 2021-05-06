@@ -5,7 +5,7 @@ import numpy as np
 from scipy.linalg import cho_solve, cholesky
 from sklearn.decomposition import PCA
 
-from eff import compute_descriptors as cd
+from . import compute_descriptors as cd
 
 
 class NpEncoder(json.JSONEncoder):
