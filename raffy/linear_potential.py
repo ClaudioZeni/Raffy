@@ -37,11 +37,11 @@ class LinearPotential():
         self.basis = basis
 
         if self.n_bodies == '2.5':
-            self.g_func = cd.GvectSB(self.rc, self.ns, self.ls, self.species,
+            self.g_func = cd.Descr25(self.rc, self.ns, self.ls, self.species,
                                      self.basis)
         elif self.n_bodies == '3':
-            self.g_func = cd.GvectB2(self.rc, self.ns, self.ls, self.species,
-                                     self.basis)
+            self.g_func = cd.Descr3(self.rc, self.ns, self.ls, self.species,
+                                    self.basis)
         else:
             print("n_bodies not understood. use '2.5' or '3' ")
 
@@ -110,7 +110,8 @@ class LinearPotential():
             Y, Y_en = ut.extract_info(X)
 
         Y = ut.reshape_forces(Y)
-        g, dg = self.get_g(X, g, dg, compute_forces, ncores, train_pca=True)
+        g, dg = self.get_g(X, g, dg, compute_forces, ncores,
+                           train_pca=self.use_pca)
 
         if compute_forces:
             # Reshape to Nenv*3, D

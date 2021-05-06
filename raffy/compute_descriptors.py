@@ -448,8 +448,8 @@ def get_ace(structure, ns, ls, radial_cutoff, species,
 
 
 class Descriptor():
-    def __init__(self, Rc_rad, ns, ls, species, basis='bessel'):
-        self.Rc_rad = Rc_rad
+    def __init__(self, rc, ns, ls, species, basis='bessel'):
+        self.rc = rc
         self.ns = ns
         self.ls = ls
         self.species = species  # List containin atomic numbers
@@ -509,7 +509,7 @@ improve performance. \nSwitching to single core.")
         return g, dg
 
 
-class GvectB2(Descriptor):
+class Descr3(Descriptor):
     """ B2 (3-body) Atomic Cluster Expansion descriptor
 
     Parameters
@@ -525,19 +525,19 @@ class GvectB2(Descriptor):
     -----
     """
 
-    def __init__(self, Rc_rad, ns, ls, species, basis='bessel'):
-        Descriptor.__init__(self, Rc_rad, ns, ls, species, basis)
+    def __init__(self, rc, ns, ls, species, basis='bessel'):
+        Descriptor.__init__(self, rc, ns, ls, species, basis)
         self.gsize_partial = int(self.number_of_species**2 *
                                  (self.ns * (self.ns + 1))/2 * self.ls)
         self.gsize = int(self.gsize_partial + self.number_of_species)
         es, ds, F1_coeff, F2_coeff, mirror_coeff = precompute_coefficients(
-            ns, ls, Rc_rad)
+            ns, ls, rc)
         Tk = precompute_Chebyshev_polynomials(ns)
         self.coefficients = [es, ds, F1_coeff, F2_coeff, mirror_coeff, Tk]
 
     def compute_single_core(self, structure,  compute_dgvect=True):
         # define shorter names:
-        radial_cutoff = self.Rc_rad
+        radial_cutoff = self.rc
         species = self.species
         ns = self.ns
         ls = self.ls
@@ -567,7 +567,7 @@ class GvectB2(Descriptor):
     def compute_env(self, env, compute_dgvect=True):
         # Make sure the environment cutoff matches the
         # one set for the descritptor
-        env.cutoffs = {'twobody': self.Rc_rad}
+        env.cutoffs = {'twobody': self.rc}
         # define shorter names:
         species = self.species
         ns = self.ns
@@ -601,7 +601,7 @@ class GvectB2(Descriptor):
         g_, dg_ = [], []
         for x in structures:
             g__, dg__ = compute_multicore_helper_b2.remote(
-                self.Rc_rad, self.ns, self.ls, self.species,
+                self.rc, self.ns, self.ls, self.species,
                 self.coefficients, self.basis, self.gsize_partial,
                 x, compute_dgvect)
             g_.append(g__)
@@ -685,7 +685,7 @@ def get_B2_from_ace_single_atom(As, dAs=None, compute_dgvect=False):
         return B_nnl, []
 
 
-class GvectSB(Descriptor):
+class Descr25(Descriptor):
     """ Spherical Bessel descriptor (2.5-body)
 
     Parameters
@@ -701,20 +701,20 @@ class GvectSB(Descriptor):
     -----
     """
 
-    def __init__(self, Rc_rad, ns, ls, species, basis='bessel'):
-        Descriptor.__init__(self, Rc_rad, ns, ls, species, basis)
+    def __init__(self, rc, ns, ls, species, basis='bessel'):
+        Descriptor.__init__(self, rc, ns, ls, species, basis)
         self.gsize_partial = int(self.number_of_species *
                                  self.number_of_species * self.ns * self.ls)
         self.gsize = int(self.gsize_partial + self.number_of_species)
         es, ds, F1_coeff, F2_coeff, mirror_coeff = precompute_coefficients(
-            ns, ls, Rc_rad)
+            ns, ls, rc)
         Tk = precompute_Chebyshev_polynomials(ns)
         self.coefficients = [es, ds, F1_coeff, F2_coeff, mirror_coeff, Tk]
 
     def compute_single_core(self, structure,  compute_dgvect=True):
 
         # define shorter names:
-        radial_cutoff = self.Rc_rad
+        radial_cutoff = self.rc
         species = self.species
         ns = self.ns
         ls = self.ls
@@ -742,7 +742,7 @@ class GvectSB(Descriptor):
         g_, dg_ = [], []
         for x in structures:
             g__, dg__ = compute_multicore_helper_sb.remote(
-                self.Rc_rad, self.ns, self.ls, self.species,
+                self.rc, self.ns, self.ls, self.species,
                 self.coefficients, self.basis, self.gsize_partial,
                 x, compute_dgvect)
             g_.append(g__)
@@ -782,7 +782,7 @@ def compute_multicore_helper_sb(radial_cutoff, ns, ls, species, coefficients,
 def compute_env(self, env, compute_dgvect=True):
     # Make sure the environment cutoff matches the
     #  one set for the descritptor
-    env.cutoffs = {'twobody': self.Rc_rad}
+    env.cutoffs = {'twobody': self.rc}
     # define shorter names:
     species = self.species
     ns = self.ns
@@ -843,7 +843,7 @@ def get_SB_from_ace_single_atom(As, dAs=None, compute_dgvect=False):
         return B_nl, []
 
 
-class GvectMix(Descriptor):
+class Descr23(Descriptor):
     """ Gvector contiaing explicit 2 and 3-body factors.
 
     Parameters
@@ -859,8 +859,8 @@ class GvectMix(Descriptor):
     -----
     """
 
-    def __init__(self, Rc_rad, ns2, ns3, ls, species, basis='bessel'):
-        Descriptor.__init__(self, Rc_rad, ns3, ls, species, basis)
+    def __init__(self, rc, ns2, ns3, ls, species, basis='bessel'):
+        Descriptor.__init__(self, rc, ns3, ls, species, basis)
         self.ns2 = ns2
         self.ns3 = ns3
         self.gsize_3 = int(self.number_of_species**2 *
@@ -869,19 +869,19 @@ class GvectMix(Descriptor):
         self.gsize_partial = self.gsize_2 + self.gsize_3
         self.gsize = int(self.gsize_partial + self.number_of_species)
         es, ds, F1_coeff, F2_coeff, mirror_coeff = precompute_coefficients(
-            ns3, ls, Rc_rad)
+            ns3, ls, rc)
         Tk = precompute_Chebyshev_polynomials(ns3)
         self.coefficients_3 = [es, ds, F1_coeff, F2_coeff, mirror_coeff, Tk]
 
         es, ds, F1_coeff, F2_coeff, mirror_coeff = precompute_coefficients(
-            ns2, 1, Rc_rad)
+            ns2, 1, rc)
         Tk = precompute_Chebyshev_polynomials(ns2)
         self.coefficients_2 = [es, ds, F1_coeff, F2_coeff, mirror_coeff, Tk]
 
     def compute_single_core(self, structure, compute_dgvect=True):
 
         # define shorter names:
-        radial_cutoff = self.Rc_rad
+        radial_cutoff = self.rc
         species = self.species
         ns3 = self.ns3
         ls = self.ls
@@ -932,7 +932,7 @@ class GvectMix(Descriptor):
         g_, dg_ = [], []
         for x in structures:
             g__, dg__ = compute_multicore_helper_mix.remote(
-                self.Rc_rad, self.ns2, self.ns3, self.ls, self.species,
+                self.rc, self.ns2, self.ns3, self.ls, self.species,
                 self.coefficients_2, self.coefficients_3, self.basis,
                 self.gsize_2, self.gsize_3, x, compute_dgvect)
             g_.append(g__)
