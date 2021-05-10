@@ -65,7 +65,7 @@ class LinearPotential():
 
     def adjust_g(self, g, dg, X, compute_forces=True, train_pca=False):
         dg_reshape = []
-        if len(g.shape) == 3:
+        if len(g[0].shape) == 2:
             g = np.array([x.sum(axis=0) for x in g])
         for i in np.arange(len(g)):
             if compute_forces and dg[i].shape == 4:
