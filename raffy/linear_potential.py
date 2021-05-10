@@ -83,7 +83,7 @@ class LinearPotential():
                 self.pca_rotation = pca.components_
             g = np.einsum('nd, id -> ni', g, self.pca_rotation)
             if compute_forces:
-                dg = np.einsum('mcd, id -> nci', dg, self.pca_rotation)
+                dg = np.einsum('mcd, id -> mci', dg, self.pca_rotation)
 
         return g, dg
 
