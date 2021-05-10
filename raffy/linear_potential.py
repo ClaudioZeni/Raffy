@@ -181,10 +181,7 @@ class LinearPotential():
 
     def save(self, folder='.'):
         name = []
-        for k in list(self.descriptors.keys()):
-            name.append(k)
-            name.extend(list(self.descriptors[k].values()))
-        name.append(self.order)
+        name.append(self.n_bodies)
         name.extend(self.species)
         name = np.array(name, dtype='str')
         name = '_'.join(name)
@@ -195,12 +192,13 @@ class LinearPotential():
         param_filename = str(
             folder / str("potential_%s.json" % (name)))
         parameters = {
-            'ns': self.g_func.ns,
-            'ls': self.g_func.ls,
+            'ns': self.ns,
+            'ls': self.ls,
             'cutoff': self.rc,
             'nbodies': self.n_bodies,
             'species': list(self.species),
             'add_squares': (self.add_squares),
+            'basis': self.basis,
             'alpha_filename': alpha_filename
         }
         np.save(alpha_filename, self.alpha)
@@ -220,7 +218,8 @@ class LinearPotential():
             parameters['ls'],
             parameters['cutoff'],
             parameters['species'],
-            parameters['add_squares'])
+            parameters['add_squares'],
+            parameters['basis'])
         new_potential.alpha = np.load(
             parameters['alpha_filename'], allow_pickle=True)
 
