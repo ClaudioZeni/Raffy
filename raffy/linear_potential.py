@@ -68,7 +68,7 @@ class LinearPotential():
         if len(g[0].shape) == 2:
             g = np.array([x.sum(axis=0) for x in g])
         for i in np.arange(len(g)):
-            if compute_forces and dg[i].shape == 4:
+            if compute_forces and len(dg[i].shape) == 4:
                 dg_reshape.extend(np.einsum('ndmc -> mcd', dg[i]))
 
         if compute_forces:
