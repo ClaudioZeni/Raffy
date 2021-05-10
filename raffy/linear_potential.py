@@ -65,14 +65,16 @@ class LinearPotential():
 
     def adjust_g(self, g, dg, X, compute_forces=True, train_pca=False):
         dg_reshape = []
-        g = np.array([x.sum(axis=0) for x in g])
+        if len(g.shape) == 3:
+            g = np.array([x.sum(axis=0) for x in g])
         for i in np.arange(len(g)):
-            if compute_forces:
+            if compute_forces and dg[i].shape == 4:
                 dg_reshape.extend(np.einsum('ndmc -> mcd', dg[i]))
 
         if compute_forces:
             # Has shape M, 3, D
-            dg = np.array(dg_reshape)
+            if len(dg_reshape) > 0:
+                dg = np.array(dg_reshape)
 
         if self.add_squares:
             g, dg = self.add_square_g(g, dg, X, compute_forces)
@@ -87,7 +89,8 @@ class LinearPotential():
 
         return g, dg
 
-    def get_g(self, X, g, dg, compute_forces, ncores=1, train_pca=False):
+    def get_g(self, X, g=None, dg=None, compute_forces=False,
+              ncores=1, train_pca=False):
         if (g is None or (dg is None and compute_forces)):
             g, dg = self.g_func.compute(X, compute_dgvect=compute_forces,
                                         ncores=ncores)

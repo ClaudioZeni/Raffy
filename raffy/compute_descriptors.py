@@ -207,20 +207,20 @@ def radial_scaled_chebyshev(rs, rad_base, radial_cutoff, Tk, lam=5):
 
 
 def radial_chebyshev(rs, rad_base, radial_cutoff, Tk):
-    x = 2*(rs/radial_cutoff - 0.5)
+    x = 2*rs/radial_cutoff - 1
     dx = 2/radial_cutoff
-    g2 = (1 + np.cos(np.pi*rs/radial_cutoff))/2
-    dg2 = -np.sin(np.pi*rs/radial_cutoff)*np.pi/radial_cutoff/2
+    g2 = 1 + np.cos(np.pi*rs/radial_cutoff)
+    dg2 = -np.sin(np.pi*rs/radial_cutoff)*np.pi/radial_cutoff
 
     gs, dgs = [], []
     for n in rad_base+1:
         if n == 1:
-            gs.append(g2)
-            dgs.append(dg2)
+            gs.append(0.5*g2)
+            dgs.append(0.5*dg2)
         else:
             g1 = Tk[n](x)
-            gs.append(0.5*(1+g1)*g2)
-            dgs.append(0.5*(1+g1)*dg2 - 0.5*g2*dx*Tk[n].deriv(1)(x))
+            gs.append(0.25*(1-g1)*g2)
+            dgs.append(0.25*(1-g1)*dg2 - 0.25*g2*dx*Tk[n].deriv(1)(x))
 
     # shapes: ns, nat_incutoff
     gs = np.array(gs)
