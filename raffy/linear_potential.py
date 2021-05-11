@@ -35,6 +35,7 @@ class LinearPotential():
         self.n_species = len(species)
         self.add_squares = add_squares
         self.basis = basis
+        self.use_pca = False
 
         if self.n_bodies == '2.5':
             self.g_func = cd.Descr25(self.rc, self.ns, self.ls, self.species,
