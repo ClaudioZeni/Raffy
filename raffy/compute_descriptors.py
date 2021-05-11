@@ -383,7 +383,7 @@ def get_a_coeff(env, ns, ls, coefficients, specie,
         # first k=i, q!=i
         # dAs has dimensions nat, ns, ls, 2ls-1, nat, 3
         dA_nlm_dxyz = np.zeros(
-            (ns, ls, 2*ls-1, len(env.positions), 3), dtype='complex128')
+            (ns, ls, 2*ls-1, len(env.positions), 3), dtype='complex64')
         dA_nlm_dxyz[:, :, :, env.atom,
                     :] -= np.sum(dA_nlm_dxyz_relative, axis=3)
         for i, idx in enumerate(env.bond_inds[mask]):
@@ -397,13 +397,13 @@ def get_ace_single_atom(env, ns, ls, coefficients, species,
                         compute_dgvect, basis='bessel'):
 
     As = np.zeros((len(species), len(species), ns,
-                   ls, 2*ls-1), dtype='complex128')
+                   ls, 2*ls-1), dtype='complex64')
     # Index_of_central_atom_species in the species vector
     j = np.where(species == env.species[env.atom])[0][0]
 
     if compute_dgvect:
         dAs = np.zeros((len(species), len(species), ns, ls, 2*ls-1,
-                        len(env.positions), 3), dtype='complex128')
+                        len(env.positions), 3), dtype='complex64')
 
     for i, s in enumerate(species):
         if compute_dgvect:
@@ -425,11 +425,11 @@ def get_ace(structure, ns, ls, radial_cutoff, species,
     # Precoumpute all factors that can be precomputed
 
     As = np.zeros([structure.nat, len(species), len(species), ns,
-                   ls, ls*2-1], dtype='complex128')
+                   ls, ls*2-1], dtype='complex64')
 
     if compute_dgvect:
         dAs = np.zeros([structure.nat, len(species), len(species), ns,
-                       ls, ls*2 - 1, structure.nat, 3], dtype='complex128')
+                       ls, ls*2 - 1, structure.nat, 3], dtype='complex64')
 
     # Obtain local atomic cluster expansion and its derivatives
     for i in np.arange(structure.nat):
