@@ -644,7 +644,7 @@ def compute_multicore_helper_b2(radial_cutoff, ns, ls, species, coefficients,
 
 def get_B2_from_ace(As, dAs=None, compute_dgvect=False):
     """ This is following the implementation from Drautz_2019.
-    An implementation using complex conjugate following the 
+    An implementation using complex conjugate following the
     Spherical Bessel paper is equivalent but ~20% slower.
     """
     ls = As.shape[4]
@@ -653,11 +653,16 @@ def get_B2_from_ace(As, dAs=None, compute_dgvect=False):
     B_nnl = np.sum(parity*As[:, :, :, :, None, :, :] *
                    As[:, :, :, None, :, :, ::-1], axis=-1).real
     if compute_dgvect:
-        # Shape is (nat, nsp, nsp, ns, ns, ls, 2ls-1, nat, 3) and we sum over 2ls-1
-        dB_nnl = (np.sum(parity[None, None, None, None, None, None, :, None, None]*
-        dAs[:, :, :, :, None, ...]*As[:, :, :, None, :, :, ::-1, None, None], axis=-3).real +
-                  np.sum(parity[None, None, None, None, None, None, :, None, None]
-                  *As[:, :, :, :, None, :, :, None, None]*
+        # Shape is (nat, nsp, nsp, ns, ns, ls, 2ls-1, nat, 3)
+        # and we sum over 2ls-1
+        dB_nnl = (np.sum(parity[None, None, None, None,
+                                None, None, :, None, None] *
+                         dAs[:, :, :, :, None, ...] *
+                         As[:, :, :, None, :, :, ::-1, None, None],
+                         axis=-3).real +
+                  np.sum(parity[None, None, None, None,
+                                None, None, :, None, None]
+                  * As[:, :, :, :, None, :, :, None, None] *
                   dAs[:, :, :, None, :, :, ::-1,  ...], axis=-3).real)
         return B_nnl, dB_nnl
     else:
@@ -819,9 +824,10 @@ def get_SB_from_ace(As, dAs=None, compute_dgvect=False):
         # Shape is (nat, nsp, nsp, ns, ls, 2ls-1, nat, 3) and we sum over 2ls-1
         dB_nl = (
                  np.sum(parity[None, None, None, None, None, :, None, None] *
-                 dAs*As[..., ::-1, None, None], axis=-3).real +
+                        dAs*As[..., ::-1, None, None], axis=-3).real +
                  np.sum(parity[None, None, None, None, None, :, None, None] *
-                 As[..., None, None]*dAs[..., ::-1, :, :], axis=-3).real)
+                        As[..., None, None]*dAs[..., ::-1, :, :],
+                        axis=-3).real)
         return B_nl, dB_nl
     else:
         return B_nl, []

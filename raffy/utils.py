@@ -100,7 +100,8 @@ Supported formats are .xyz and FLARE .json format""")
     return structures
 
 
-def save_as_xyz(structures, outfile="trajectory.xyz", energy=True, labels=False):
+def save_as_xyz(structures, outfile="trajectory.xyz",
+                energy=True, labels=False):
     """
     """
     if energy:
@@ -123,7 +124,6 @@ def save_as_xyz(structures, outfile="trajectory.xyz", energy=True, labels=False)
                        dft_forces=structures[i].forces, labels=labels)
 
 
-
 def to_xyz(struct, extended_xyz: bool = True, print_stds: bool = False,
            print_forces: bool = False, print_max_stds: bool = False,
            print_energies: bool = False, predict_energy=None,
@@ -135,10 +135,10 @@ def to_xyz(struct, extended_xyz: bool = True, print_stds: bool = False,
 
     Reference:
 
-    Vandermause, J., Torrisi, S. B., Batzner, S., Xie, Y., Sun, L., Kolpak, 
-    A. M. & Kozinsky, B. 
-    On-the-fly active learning of interpretable Bayesian force fields for 
-    atomistic rare events. npj Comput Mater 6, 20 (2020). 
+    Vandermause, J., Torrisi, S. B., Batzner, S., Xie, Y., Sun, L., Kolpak,
+    A. M. & Kozinsky, B.
+    On-the-fly active learning of interpretable Bayesian force fields for
+    atomistic rare events. npj Comput Mater 6, 20 (2020).
     https://doi.org/10.1038/s41524-020-0283-z
 
     Convenience function which turns a structure into an extended .xyz
