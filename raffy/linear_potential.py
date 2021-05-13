@@ -136,7 +136,9 @@ class LinearPotential():
         gtg = np.einsum('na, nb -> ab', g_tot, g_tot)
         # Add regularization
         noise = self.noise*np.ones(len(gtg))
-        noise[-len(X):] = self.noise
+        if Y_en is not None:
+            nat = np.array([x.nat for x in X])
+            noise[-len(Y_en):] = self.noise/nat
         gtg[np.diag_indices_from(gtg)] += noise
         # Cholesky Decomposition to find alpha
         L_ = cholesky(gtg, lower=True)
