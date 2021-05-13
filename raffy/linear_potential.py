@@ -138,7 +138,7 @@ class LinearPotential():
         noise = self.noise*np.ones(len(gtg))
         if Y_en is not None:
             nat = np.array([x.nat for x in X])
-            noise[-len(X):] = self.noise[-len(X):]/nat
+            noise[-len(X):] = noise[-len(X):]/nat
         gtg[np.diag_indices_from(gtg)] += noise
         # Cholesky Decomposition to find alpha
         L_ = cholesky(gtg, lower=True)
