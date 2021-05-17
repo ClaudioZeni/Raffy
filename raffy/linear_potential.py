@@ -61,8 +61,8 @@ class LinearPotential():
             dg2 = np.array(dg2)
         # Append squared descriptors
         g = np.append(g, g2, axis=-1)
-
         del g2
+
         if compute_forces:
             dg = np.append(dg, dg2, axis=-1)
             del dg2
@@ -104,11 +104,10 @@ class LinearPotential():
         g, dg = self.adjust_g(g, dg, X, compute_forces, train_pca)
         return g, dg
 
-    def fit(self, X, Y=None, Y_en=None, noise=1e-8,
+    def fit(self, X, Y=None, Y_en=None,
             g=None, dg=None, ncores=1, pca_comps=None,
             compute_forces=True):
 
-        self.noise = noise
         if pca_comps is not None:
             self.use_pca = True
             self.nc_pca = pca_comps
@@ -141,8 +140,8 @@ class LinearPotential():
         del dg, g, Y, Y_en, X
         gtg = np.einsum('na, nb -> ab', g_tot, g_tot)
         # Add regularization
-        noise = self.noise*np.ones(len(gtg))
-        gtg[np.diag_indices_from(gtg)] += noise
+        reg = np.std(g_tot**2, axis=0) * np.eye(len(gtg))/1000
+        gtg += reg
         # Cholesky Decomposition to find alpha
         L_ = cholesky(gtg, lower=True)
         # Calculate fY
@@ -153,8 +152,7 @@ class LinearPotential():
         self.alpha = alpha
         del gY, alpha, L_
 
-    def fit_local(self, X, Y, g, dg, noise=1e-8):
-        self.noise = noise
+    def fit_local(self, X, Y, g, dg):
         dg = np.reshape(dg, (dg.shape[0]*3, dg.shape[2]))
         Y = ut.reshape_forces(Y)
         g_tot = -dg
@@ -162,9 +160,8 @@ class LinearPotential():
         # ftf shape is (S, S)
         gtg = np.einsum('na, nb -> ab', g_tot, g_tot)
         # Add regularization
-        noise = self.noise*np.ones(len(gtg))
-        noise[-len(X):] = self.noise
-        gtg[np.diag_indices_from(gtg)] += noise
+        reg = np.std(g_tot**2, axis=0) * np.eye(len(gtg))/1000
+        gtg += reg
         # Cholesky Decomposition to find alpha
         L_ = cholesky(gtg, lower=True)
         # Calculate fY
