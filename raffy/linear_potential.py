@@ -49,19 +49,23 @@ class LinearPotential():
     def add_square_g(self, g, dg, X, compute_forces):
         # Generate squared descriptors
         g2 = g**2
+        factor = np.mean(g2)/np.mean(abs(g))
+        g2 = g2/factor
         if compute_forces:
-            j = 0
             dg2 = []
+            j = 0
             for i, x in enumerate(X):
                 dg2.extend(2*np.einsum('d, mcd -> mcd',
-                           g[i], dg[j:j+x.nat]))
+                           g[i], dg[j:j+x.nat])/factor)
                 j += x.nat
             dg2 = np.array(dg2)
         # Append squared descriptors
         g = np.append(g, g2, axis=-1)
+
+        del g2
         if compute_forces:
             dg = np.append(dg, dg2, axis=-1)
-
+            del dg2
         return g, dg
 
     def adjust_g(self, g, dg, X, compute_forces=True, train_pca=False):
@@ -79,6 +83,7 @@ class LinearPotential():
 
         if self.add_squares:
             g, dg = self.add_square_g(g, dg, X, compute_forces)
+
         if self.use_pca:
             if train_pca:
                 pca = PCA(n_components=self.nc_pca)
@@ -90,7 +95,7 @@ class LinearPotential():
 
         return g, dg
 
-    def get_g(self, X, g=None, dg=None, compute_forces=False,
+    def get_g(self, X, g=None, dg=None, compute_forces=True,
               ncores=1, train_pca=False):
         if (g is None or (dg is None and compute_forces)):
             g, dg = self.g_func.compute(X, compute_dgvect=compute_forces,
@@ -110,7 +115,8 @@ class LinearPotential():
         else:
             self.use_pca = False
 
-        if (type(X) == list and type(X[0]) == struc.Structure):
+        if (type(X) == list and type(X[0]) == struc.Structure
+                and ((Y_en is None) or (Y is None and compute_forces))):
             Y, Y_en = ut.extract_info(X)
 
         Y = ut.reshape_forces(Y)
@@ -132,7 +138,7 @@ class LinearPotential():
             g_tot = -dg
             Y_tot = Y
 
-        # ftf shape is (S, S)
+        del dg, g, Y, Y_en, X
         gtg = np.einsum('na, nb -> ab', g_tot, g_tot)
         # Add regularization
         noise = self.noise*np.ones(len(gtg))
@@ -141,9 +147,11 @@ class LinearPotential():
         L_ = cholesky(gtg, lower=True)
         # Calculate fY
         gY = np.einsum('na, n -> a', g_tot, Y_tot)
+        del g_tot, gtg
         # Find Alpha
         alpha = cho_solve((L_, True), gY)
         self.alpha = alpha
+        del gY, alpha, L_
 
     def fit_local(self, X, Y, g, dg, noise=1e-8):
         self.noise = noise

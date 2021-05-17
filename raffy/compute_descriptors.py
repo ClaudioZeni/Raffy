@@ -27,7 +27,7 @@ def spherical_conversion(xyz: np.array, jacobian: bool = False) -> np.array:
     ptsnew = np.zeros(xyz.shape)
     # Adding the term to prevent numerical instability
     # when all points lie on a plane (?)
-    xy = xyz[:, 0]**2 + xyz[:, 1]**2 + 1e-10
+    xy = xyz[:, 0]**2 + xyz[:, 1]**2 + 1e-8
     ptsnew[:, 0] = np.sqrt(xy + xyz[:, 2]**2)
     # for elevation angle defined from Z-axis down
     ptsnew[:, 1] = np.arctan2(np.sqrt(xy), xyz[:, 2])
@@ -550,6 +550,7 @@ class Descr3(Descriptor):
         # Use local atomic cluster expansion and its derivatives
         # to compute B2 descriptor and its derivatives
         Gs, dGs = get_B2_from_ace(As, dAs, compute_dgvect)
+        del As, dAs
 
         # Compute indexes to use when reducing G and dG because of symmetry
         r_ind, c_ind = np.triu_indices(ns)
@@ -583,6 +584,7 @@ class Descr3(Descriptor):
         # Use local atomic cluster expansion and its derivatives to
         # compute B2 descriptor and its derivatives
         Gs, dGs = get_B2_from_ace_single_atom(As, dAs, compute_dgvect)
+        del As, dAs
 
         # Reduce size of G because of symmetry
         Gs = Gs[:, :, r_ind, c_ind, :]
@@ -626,6 +628,7 @@ def compute_multicore_helper_b2(radial_cutoff, ns, ls, species, coefficients,
     # Use local atomic cluster expansion and its derivatives
     # to compute B2 descriptor and its derivatives
     Gs, dGs = get_B2_from_ace(As, dAs, compute_dgvect)
+    del As, dAs
 
     # Compute indexes to use when reducing G and dG because of symmetry
     r_ind, c_ind = np.triu_indices(ns)
@@ -664,8 +667,10 @@ def get_B2_from_ace(As, dAs=None, compute_dgvect=False):
                                 None, None, :, None, None]
                   * As[:, :, :, :, None, :, :, None, None] *
                   dAs[:, :, :, None, :, :, ::-1,  ...], axis=-3).real)
+        del As, dAs, parity
         return B_nnl, dB_nnl
     else:
+        del As, parity
         return B_nnl, []
 
 
@@ -685,8 +690,10 @@ def get_B2_from_ace_single_atom(As, dAs=None, compute_dgvect=False):
                   As[:, :, :, None, :, :, None, None] *
                   dAs[:, :, None, :, :, ::-1,  ...],
                   axis=-3).real)
+        del As, dAs, parity
         return B_nnl, dB_nnl
     else:
+        del As, parity
         return B_nnl, []
 
 
@@ -732,6 +739,7 @@ class Descr25(Descriptor):
         # Use local atomic cluster expansion and its derivatives
         #  to compute B2 descriptor and its derivatives
         Gs, dGs = get_SB_from_ace(As, dAs, compute_dgvect)
+        del As, dAs
 
         # Reduce size of G because of symmetry
         Gs = np.reshape(Gs, (structure.nat, self.gsize_partial))
@@ -773,6 +781,7 @@ def compute_multicore_helper_sb(radial_cutoff, ns, ls, species, coefficients,
     # Use local atomic cluster expansion and its derivatives
     #  to compute B2 descriptor and its derivatives
     Gs, dGs = get_SB_from_ace(As, dAs, compute_dgvect)
+    del As, dAs
 
     # Reduce size of G because of symmetry
     Gs = np.reshape(Gs, (structure.nat, gsize))
@@ -801,6 +810,7 @@ def compute_env(self, env, compute_dgvect=True):
     # Use local atomic cluster expansion and its derivatives
     #  to compute B2 descriptor and its derivatives
     Gs, dGs = get_SB_from_ace_single_atom(As, dAs, compute_dgvect)
+    del As, dAs
 
     Gs = np.reshape(Gs, (self.gsize_partial))
 
@@ -828,8 +838,10 @@ def get_SB_from_ace(As, dAs=None, compute_dgvect=False):
                  np.sum(parity[None, None, None, None, None, :, None, None] *
                         As[..., None, None]*dAs[..., ::-1, :, :],
                         axis=-3).real)
+        del As, dAs, parity
         return B_nl, dB_nl
     else:
+        del As, parity
         return B_nl, []
 
 
@@ -844,8 +856,10 @@ def get_SB_from_ace_single_atom(As, dAs=None, compute_dgvect=False):
                  dAs*As[..., ::-1, None, None], axis=-3).real +
                  np.sum(parity[None, None, None, :, None, None] *
                  As[..., None, None]*dAs[..., ::-1, :, :], axis=-3).real)
+        del As, dAs, parity
         return B_nl, dB_nl
     else:
+        del As, parity
         return B_nl, []
 
 
@@ -895,33 +909,35 @@ class Descr23(Descriptor):
         coefficients_3 = self.coefficients_3
         coefficients_2 = self.coefficients_2
 
+        # Compute indexes to use when reducing G and dG because of symmetry
+        r_ind, c_ind = np.triu_indices(ns3)
+
         # Obtain the local atomic cluster expansions
         As3, dAs3 = get_ace(structure, ns3, ls, radial_cutoff,
                             species, coefficients_3, compute_dgvect,
                             self.basis)
+
+        # Use local atomic cluster expansion and its derivatives
+        #  to compute B2 descriptor and its derivatives
+        Gs3, dGs3 = get_B2_from_ace(As3, dAs3, compute_dgvect)
+        del As3, dAs3
+        # Reduce size of G because of symmetry
+        Gs3 = Gs3[:, :, :, r_ind, c_ind, ...]
+        Gs3 = np.reshape(Gs3, (structure.nat, self.gsize_3))
 
         # Obtain the local atomic cluster expansions
         As2, dAs2 = get_ace(structure, ns2, 1, radial_cutoff,
                             species, coefficients_2, compute_dgvect,
                             self.basis)
 
-        # Use local atomic cluster expansion and its derivatives
-        #  to compute B2 descriptor and its derivatives
-        Gs3, dGs3 = get_B2_from_ace(As3, dAs3, compute_dgvect)
-
         Gs2 = As2[:, :, :, :, 0, 0].real
         if compute_dgvect:
             dGs2 = dAs2[:, :, :, :, 0, 0, :, :].real
-
-        # Compute indexes to use when reducing G and dG because of symmetry
-        r_ind, c_ind = np.triu_indices(ns3)
-        # Reduce size of G because of symmetry
-        Gs3 = Gs3[:, :, :, r_ind, c_ind, ...]
-        Gs3 = np.reshape(Gs3, (structure.nat, self.gsize_3))
-
+        del As2, dAs2
         Gs2 = np.reshape(Gs2, (structure.nat, self.gsize_2))
-
         Gs = np.concatenate((Gs2, Gs3), axis=1)
+        del Gs2, Gs3
+
         if compute_dgvect:
             dGs3 = dGs3[:, :, :, r_ind, c_ind, ...]
             dGs3 = np.reshape(
@@ -929,6 +945,7 @@ class Descr23(Descriptor):
             dGs2 = np.reshape(
                 dGs2, (structure.nat, self.gsize_2, structure.nat, 3))
             dGs = np.concatenate((dGs2, dGs3), axis=1)
+            del dGs2, dGs3
         else:
             dGs = []
         return Gs, dGs
@@ -962,17 +979,10 @@ def compute_multicore_helper_mix(radial_cutoff, ns2, ns3, ls, species,
     As3, dAs3 = get_ace(structure, ns3, ls, radial_cutoff,
                         species, coefficients_3, compute_dgvect, basis)
 
-    # Obtain the local atomic cluster expansions
-    As2, dAs2 = get_ace(structure, ns2, 1, radial_cutoff,
-                        species, coefficients_2, compute_dgvect, basis)
-
     # Use local atomic cluster expansion and its derivatives
     #  to compute B2 descriptor and its derivatives
     Gs3, dGs3 = get_B2_from_ace(As3, dAs3, compute_dgvect)
-
-    Gs2 = As2[:, :, :, :, 0, 0].real
-    if compute_dgvect:
-        dGs2 = dAs2[:, :, :, :, 0, 0, :, :].real
+    del As3, dAs3
 
     # Compute indexes to use when reducing G and dG because of symmetry
     r_ind, c_ind = np.triu_indices(ns3)
@@ -980,9 +990,18 @@ def compute_multicore_helper_mix(radial_cutoff, ns2, ns3, ls, species,
     Gs3 = Gs3[:, :, :, r_ind, c_ind, ...]
     Gs3 = np.reshape(Gs3, (structure.nat, gsize_3))
 
-    Gs2 = np.reshape(Gs2, (structure.nat, gsize_2))
+    # Obtain the local atomic cluster expansions
+    As2, dAs2 = get_ace(structure, ns2, 1, radial_cutoff,
+                        species, coefficients_2, compute_dgvect, basis)
+    Gs2 = As2[:, :, :, :, 0, 0].real
+    if compute_dgvect:
+        dGs2 = dAs2[:, :, :, :, 0, 0, :, :].real
+    del As2, dAs2
 
+    Gs2 = np.reshape(Gs2, (structure.nat, gsize_2))
     Gs = np.concatenate((Gs2, Gs3), axis=1)
+    del Gs2, Gs3
+
     if compute_dgvect:
         dGs3 = dGs3[:, :, :, r_ind, c_ind, ...]
         dGs3 = np.reshape(
@@ -990,6 +1009,7 @@ def compute_multicore_helper_mix(radial_cutoff, ns2, ns3, ls, species,
         dGs2 = np.reshape(
             dGs2, (structure.nat, gsize_2, structure.nat, 3))
         dGs = np.concatenate((dGs2, dGs3), axis=1)
+        del dGs2, dGs3
     else:
         dGs = []
 
