@@ -104,7 +104,7 @@ class LinearPotential():
         g, dg = self.adjust_g(g, dg, X, compute_forces, train_pca)
         return g, dg
 
-    def fit(self, X, Y=None, Y_en=None,
+    def fit(self, X, Y=None, Y_en=None, alpha=1.0,
             g=None, dg=None, ncores=1, pca_comps=None,
             compute_forces=True):
 
@@ -130,27 +130,38 @@ class LinearPotential():
         if Y_en is not None and compute_forces:
             g_tot = np.concatenate((-dg, g), axis=0)
             Y_tot = np.concatenate((Y, Y_en), axis=0)
+            self.force_fit = True
+            self.energy_fit = True
         elif Y_en is not None and not compute_forces:
             g_tot = g
             Y_tot = Y_en
+            self.force_fit = False
+            self.energy_fit = True
         else:
             g_tot = -dg
             Y_tot = Y
+            self.force_fit = True
+            self.energy_fit = False
 
-        del dg, g, Y, Y_en, X
-        gtg = np.einsum('na, nb -> ab', g_tot, g_tot)
-        # Add regularization
-        reg = np.std(g_tot**2, axis=0) * np.eye(len(gtg))/1000
-        gtg += reg
-        # Cholesky Decomposition to find alpha
-        L_ = cholesky(gtg, lower=True)
-        # Calculate fY
-        gY = np.einsum('na, n -> a', g_tot, Y_tot)
-        del g_tot, gtg
-        # Find Alpha
-        alpha = cho_solve((L_, True), gY)
-        self.alpha = alpha
-        del gY, alpha, L_
+        # del dg, g, Y, Y_en, X
+        # gtg = np.einsum('na, nb -> ab', g_tot, g_tot)
+        # # Add regularization
+        # reg = np.std(g_tot**2, axis=0) * np.eye(len(gtg))/1000
+        # gtg += reg
+        # # Cholesky Decomposition to find alpha
+        # L_ = cholesky(gtg, lower=True)
+        # # Calculate fY
+        # gY = np.einsum('na, n -> a', g_tot, Y_tot)
+        # del g_tot, gtg
+        # # Find Alpha
+        # alpha = cho_solve((L_, True), gY)
+        # self.alpha = alpha
+        # del gY, alpha, L_
+
+        from sklearn.linear_model import Ridge
+        clf = Ridge(alpha=alpha, tol=1e-6)
+        clf.fit(g_tot, Y_tot)
+        self.clf = clf
 
     def fit_local(self, X, Y, g, dg):
         dg = np.reshape(dg, (dg.shape[0]*3, dg.shape[2]))
@@ -174,18 +185,34 @@ class LinearPotential():
                 g=None, dg=None, ncores=1):
 
         G, dG = self.get_g(structures, g, dg, compute_forces, ncores)
-        es, fs = [], []
-        nat_counter = 0
-        for i in np.arange(len(structures)):
-            e = np.dot(G[i], self.alpha)
-            es.append(e)
-            if compute_forces:
-                f = -np.einsum('mcd, d -> mc',
-                               dG[nat_counter:nat_counter+structures[i].nat],
-                               self.alpha)
-                fs.extend(f)
-                nat_counter += structures[i].nat
-        return np.array(es), np.array(fs)
+
+        if compute_forces:
+            # Reshape to Nenv*3, D
+            dG = np.reshape(dG, (dG.shape[0]*3, dG.shape[2]))
+            # Cover both energy, force and force/energy training
+            g_tot = np.concatenate((-dG, G), axis=0)
+
+            Y_tot = self.clf.predict(g_tot)
+            es = Y_tot[-len(structures):]
+            fs = Y_tot[:-len(structures)]
+            fs = np.reshape(fs, (len(fs)//3, 3))
+        else:
+            es = self.clf.predict(G)
+            fs = np.array([])
+        return es, fs
+
+        # es, fs = [], []
+        # nat_counter = 0
+        # for i in np.arange(len(structures)):
+        #     e = np.dot(G[i], self.alpha)
+        #     es.append(e)
+        #     if compute_forces:
+        #         f = -np.einsum('mcd, d -> mc',
+        #                        dG[nat_counter:nat_counter+structures[i].nat],
+        #                        self.alpha)
+        #         fs.extend(f)
+        #         nat_counter += structures[i].nat
+        # return np.array(es), np.array(fs)
 
     def save(self, folder='.'):
         name = []
