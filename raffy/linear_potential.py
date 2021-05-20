@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 import numpy as np
-from scipy.linalg import cho_solve, cholesky
+from sklearn.linear_model import Ridge
 from sklearn.decomposition import PCA
 
 from . import compute_descriptors as cd
@@ -100,6 +100,8 @@ class LinearPotential():
         if (g is None or (dg is None and compute_forces)):
             g, dg = self.g_func.compute(X, compute_dgvect=compute_forces,
                                         ncores=ncores)
+        self.g_ = g
+        self.dg_ = dg
 
         g, dg = self.adjust_g(g, dg, X, compute_forces, train_pca)
         return g, dg
@@ -121,6 +123,8 @@ class LinearPotential():
         Y = ut.reshape_forces(Y)
         g, dg = self.get_g(X, g, dg, compute_forces, ncores,
                            train_pca=self.use_pca)
+        self.g = g
+        self.dg = dg
 
         if compute_forces:
             # Reshape to Nenv*3, D
@@ -157,29 +161,22 @@ class LinearPotential():
         # alpha = cho_solve((L_, True), gY)
         # self.alpha = alpha
         # del gY, alpha, L_
+        self.g_tot = g_tot
+        self.Y_tot = Y_tot
 
-        from sklearn.linear_model import Ridge
         clf = Ridge(alpha=alpha, tol=1e-6)
         clf.fit(g_tot, Y_tot)
         self.clf = clf
 
-    def fit_local(self, X, Y, g, dg):
+    def fit_local(self, X, Y, dg, alpha=1.0):
         dg = np.reshape(dg, (dg.shape[0]*3, dg.shape[2]))
         Y = ut.reshape_forces(Y)
         g_tot = -dg
         Y_tot = Y
         # ftf shape is (S, S)
-        gtg = np.einsum('na, nb -> ab', g_tot, g_tot)
-        # Add regularization
-        reg = np.std(g_tot**2, axis=0) * np.eye(len(gtg))/1000
-        gtg += reg
-        # Cholesky Decomposition to find alpha
-        L_ = cholesky(gtg, lower=True)
-        # Calculate fY
-        gY = np.einsum('na, n -> a', g_tot, Y_tot)
-        # Find Alpha
-        alpha = cho_solve((L_, True), gY)
-        self.alpha = alpha
+        clf = Ridge(alpha=alpha, tol=1e-6)
+        clf.fit(g_tot, Y_tot)
+        self.clf = clf
 
     def predict(self, structures, compute_forces=True,
                 g=None, dg=None, ncores=1):

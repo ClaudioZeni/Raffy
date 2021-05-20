@@ -2,6 +2,7 @@ import numpy as np
 import ray
 import scipy.special
 from flare.env import AtomicEnvironment
+from numba import njit
 
 
 def spherical_conversion(xyz: np.array, jacobian: bool = False) -> np.array:
@@ -502,11 +503,14 @@ improve performance. \nSwitching to single core.")
         for k, v in self.species_dict.items():
             matching_species = atoms.coded_species == k
             one_body_term[matching_species, v] += 1
-        g = np.append(g, np.array(one_body_term), axis=-1)
-        if compute_dgvect:
-            dg = np.append(dg, np.zeros((dg.shape[0], self.number_of_species,
-                                         dg.shape[2], 3)), axis=1)
-        return g, dg
+        # g = np.append(g, np.array(one_body_term, dtype='float32'), axis=-1)
+        g_ = np.copy(g)
+        g_[:, -self.number_of_species:] = one_body_term
+        # if compute_dgvect:
+        #     dg = np.append(dg, np.zeros((dg.shape[0], self.number_of_species,
+        #                                  dg.shape[2], 3), dtype='float32'),
+        #                    axis=1)
+        return g_, dg
 
 
 class Descr3(Descriptor):
@@ -549,20 +553,21 @@ class Descr3(Descriptor):
 
         # Use local atomic cluster expansion and its derivatives
         # to compute B2 descriptor and its derivatives
-        Gs, dGs = get_B2_from_ace(As, dAs, compute_dgvect)
+        parity = (-1)**np.linspace(-ls+1, ls-1, 2*ls-1)
+        Gs, dGs = get_B2_from_ace(parity, As, dAs, compute_dgvect)
         del As, dAs
 
-        # Compute indexes to use when reducing G and dG because of symmetry
-        r_ind, c_ind = np.triu_indices(ns)
-        # Reduce size of G because of symmetry
-        Gs = Gs[:, :, :, r_ind, c_ind, ...]
-        Gs = np.reshape(Gs, (structure.nat, self.gsize_partial))
+        # # Compute indexes to use when reducing G and dG because of symmetry
+        # r_ind, c_ind = np.triu_indices(ns)
+        # # Reduce size of G because of symmetry
+        # Gs = Gs[:, :, :, r_ind, c_ind, ...]
+        # Gs = np.reshape(Gs, (structure.nat, self.gsize_partial))
 
-        if compute_dgvect:
-            # Reduce size of dG because of symmetry
-            dGs = dGs[:, :, :, r_ind, c_ind, ...]
-            dGs = np.reshape(
-                dGs, (structure.nat, self.gsize_partial, structure.nat, 3))
+        # if compute_dgvect:
+        #     # Reduce size of dG because of symmetry
+        #     dGs = dGs[:, :, :, r_ind, c_ind, ...]
+        #     dGs = np.reshape(
+        #         dGs, (structure.nat, self.gsize_partial, structure.nat, 3))
         return Gs, dGs
 
     def compute_env(self, env, compute_dgvect=True):
@@ -575,7 +580,7 @@ class Descr3(Descriptor):
         ls = self.ls
         coefficients = self.coefficients
         # Compute indexes to use when reducing G and dG because of symmetry
-        r_ind, c_ind = np.triu_indices(ns)
+        # r_ind, c_ind = np.triu_indices(ns)
 
         # Obtain the local atomic cluster expansions
         As, dAs = get_ace_single_atom(
@@ -583,20 +588,20 @@ class Descr3(Descriptor):
 
         # Use local atomic cluster expansion and its derivatives to
         # compute B2 descriptor and its derivatives
-        Gs, dGs = get_B2_from_ace_single_atom(As, dAs, compute_dgvect)
+        parity = (-1)**np.linspace(-ls+1, ls-1, 2*ls-1)
+        Gs, dGs = get_B2_from_ace_single_atom(parity, As, dAs, compute_dgvect)
         del As, dAs
-
-        # Reduce size of G because of symmetry
-        Gs = Gs[:, :, r_ind, c_ind, :]
-        Gs = np.reshape(Gs, (self.gsize_partial))
-
-        if compute_dgvect:
-            # Reduce size of dG because of symmetry
-            dGs = dGs[:, :, r_ind, c_ind, ...]
-            dGs = np.reshape(
-                dGs, (self.gsize_partial, len(env.positions), 3))
-
         return Gs, dGs
+
+        # # Reduce size of G because of symmetry
+        # Gs = Gs[:, :, r_ind, c_ind, :]
+        # Gs = np.reshape(Gs, (self.gsize_partial))
+
+        # if compute_dgvect:
+        #     # Reduce size of dG because of symmetry
+        #     dGs = dGs[:, :, r_ind, c_ind, ...]
+        #     dGs = np.reshape(
+        #         dGs, (self.gsize_partial, len(env.positions), 3))
 
     def compute_multi_core(self, structures, compute_dgvect=True, ncores=4):
         ray.init(num_cpus=ncores)
@@ -627,74 +632,111 @@ def compute_multicore_helper_b2(radial_cutoff, ns, ls, species, coefficients,
 
     # Use local atomic cluster expansion and its derivatives
     # to compute B2 descriptor and its derivatives
-    Gs, dGs = get_B2_from_ace(As, dAs, compute_dgvect)
+    parity = (-1)**np.linspace(-ls+1, ls-1, 2*ls-1)
+    Gs, dGs = get_B2_from_ace(parity, As, dAs, compute_dgvect)
     del As, dAs
-
-    # Compute indexes to use when reducing G and dG because of symmetry
-    r_ind, c_ind = np.triu_indices(ns)
-    # Reduce size of G because of symmetry
-    Gs = Gs[:, :, :, r_ind, c_ind, ...]
-    Gs = np.reshape(Gs, (structure.nat, gsize))
-
-    if compute_dgvect:
-        # Reduce size of dG because of symmetry
-        dGs = dGs[:, :, :, r_ind, c_ind, ...]
-        dGs = np.reshape(
-            dGs, (structure.nat, gsize, structure.nat, 3))
-
     return Gs, dGs
 
+    # # Compute indexes to use when reducing G and dG because of symmetry
+    # r_ind, c_ind = np.triu_indices(ns)
+    # # Reduce size of G because of symmetry
+    # Gs = Gs[:, :, :, r_ind, c_ind, ...]
+    # Gs = np.reshape(Gs, (structure.nat, gsize))
 
-def get_B2_from_ace(As, dAs=None, compute_dgvect=False):
+    # if compute_dgvect:
+    #     # Reduce size of dG because of symmetry
+    #     dGs = dGs[:, :, :, r_ind, c_ind, ...]
+    #     dGs = np.reshape(
+    #         dGs, (structure.nat, gsize, structure.nat, 3))
+
+# def get_B2_from_ace(As, dAs=None, compute_dgvect=False):
+#     """ This is following the implementation from Drautz_2019.
+#     An implementation using complex conjugate following the
+#     Spherical Bessel paper is equivalent but ~20% slower.
+#     """
+#     ls = As.shape[4]
+#     parity = (-1)**np.linspace(-ls+1, ls-1, 2*ls-1)
+#     # Shape is (nat, nsp, nsp, ns, ns, ls, 2ls-1) and we sum over 2ls-1
+#     B_nnl = np.sum(parity*As[:, :, :, :, None, :, :] *
+#                    As[:, :, :, None, :, :, ::-1], axis=-1).real
+#     B_nnl = np.array(B_nnl, dtype='float32')
+
+#     if compute_dgvect:
+#         # Shape is (nat, nsp, nsp, ns, ns, ls, 2ls-1, nat, 3)
+#         # and we sum over 2ls-1
+#         dB_nnl = (np.sum(parity[None, None, None, None,
+#                                 None, None, :, None, None] *
+#                          dAs[:, :, :, :, None, ...] *
+#                          As[:, :, :, None, :, :, ::-1, None, None],
+#                          axis=-3).real +
+#                   np.sum(parity[None, None, None, None,
+#                                 None, None, :, None, None]
+#                   * As[:, :, :, :, None, :, :, None, None] *
+#                   dAs[:, :, :, None, :, :, ::-1,  ...], axis=-3).real)
+#         dB_nnl = np.array(dB_nnl, dtype='float32')
+#         del As, dAs, parity
+#         return B_nnl, dB_nnl
+#     else:
+#         del As, parity
+#         return B_nnl, []
+
+
+@njit(fastmath=True)
+def get_B2_from_ace(parity, As, dAs=None, compute_dgvect=False):
     """ This is following the implementation from Drautz_2019.
     An implementation using complex conjugate following the
     Spherical Bessel paper is equivalent but ~20% slower.
     """
     ls = As.shape[4]
-    parity = (-1)**np.linspace(-ls+1, ls-1, 2*ls-1)
-    # Shape is (nat, nsp, nsp, ns, ns, ls, 2ls-1) and we sum over 2ls-1
-    B_nnl = np.sum(parity*As[:, :, :, :, None, :, :] *
-                   As[:, :, :, None, :, :, ::-1], axis=-1).real
+    ns = As.shape[3]
+    nat = As.shape[0]
+    nsp = As.shape[1]
+    r_ind, c_ind = np.triu_indices(ns)
+    le = ls*nsp*nsp
+    B_nnl = np.zeros((nat, le*len(r_ind)+nsp), dtype=np.float32)
+    for i in np.arange(nat):
+        j = 0
+        for r, c in zip(r_ind, c_ind):
+            B_nnl[i, j*le:(j+1)*le] = np.ravel(np.sum(As[i, :, :, r, :, :]*As[i, :, :, c, :, ::-1]*parity, axis = -1).real)
+            j += 1
+
     if compute_dgvect:
-        # Shape is (nat, nsp, nsp, ns, ns, ls, 2ls-1, nat, 3)
-        # and we sum over 2ls-1
-        dB_nnl = (np.sum(parity[None, None, None, None,
-                                None, None, :, None, None] *
-                         dAs[:, :, :, :, None, ...] *
-                         As[:, :, :, None, :, :, ::-1, None, None],
-                         axis=-3).real +
-                  np.sum(parity[None, None, None, None,
-                                None, None, :, None, None]
-                  * As[:, :, :, :, None, :, :, None, None] *
-                  dAs[:, :, :, None, :, :, ::-1,  ...], axis=-3).real)
-        del As, dAs, parity
-        return B_nnl, dB_nnl
-    else:
-        del As, parity
-        return B_nnl, []
+        dB_nnl = np.zeros((nat, le*len(r_ind)+nsp, nat, 3), dtype=np.float32)
+        for i in np.arange(nat):
+            j = 0
+            for r, c in zip(r_ind, c_ind):
+                for k in np.arange(nat):
+                    for s in np.arange(3):
+                        dB_nnl[i, j*le:(j+1)*le, k, s] = np.ravel(np.sum(parity*dAs[i, :, :, r, :, :, k, s] * As[i, :, :, c, :, ::-1], axis=-1).real)
+                        dB_nnl[i, j*le:(j+1)*le, k, s] += np.ravel(np.sum(parity*dAs[i, :, :, c, :, ::-1, k, s] * As[i, :, :, r, :, :], axis=-1).real)
+                j += 1
+    return B_nnl, dB_nnl
 
 
-def get_B2_from_ace_single_atom(As, dAs=None, compute_dgvect=False):
+@njit(fastmath=True)
+def get_B2_from_ace_single_atom(parity, As, dAs=None, compute_dgvect=False):
     ls = As.shape[3]
-    parity = (-1)**np.linspace(-ls+1, ls-1, 2*ls-1)
-    # Shape is (nsp, nsp, ns, ns, ls, 2ls-1) and we sum over 2ls-1
-    B_nnl = np.sum(parity*As[:, :, :, None, :, :] *
-                   As[:, :, None, :, :, ::-1], axis=-1).real
+    ns = As.shape[2]
+    nsp = As.shape[0]
+    r_ind, c_ind = np.triu_indices(ns)
+    le = ls*nsp*nsp
+    B_nnl = np.zeros((le*len(r_ind)+nsp), dtype=np.float32)
+    j = 0
+    for r, c in zip(r_ind, c_ind):
+        B_nnl[j*le:(j+1)*le] = np.ravel(np.sum(As[:, :, r, :, :]*As[:, :, c, :, ::-1]*parity, axis = -1).real)
+        j += 1
+
     if compute_dgvect:
-        # Shape is (nsp, nsp, ns, ns, ls, 2ls-1, nat, 3) and we sum over 2ls-1
-        dB_nnl = (np.sum(parity[None, None, None, None, None, :, None, None] *
-                         dAs[:, :, :, None, ...] *
-                         As[:, :, None, :, :, ::-1, None, None],
-                         axis=-3).real +
-                  np.sum(parity[None, None, None, None, None, :, None, None] *
-                  As[:, :, :, None, :, :, None, None] *
-                  dAs[:, :, None, :, :, ::-1,  ...],
-                  axis=-3).real)
-        del As, dAs, parity
-        return B_nnl, dB_nnl
-    else:
-        del As, parity
-        return B_nnl, []
+        nat = dAs.shape[-2]
+        dB_nnl = np.zeros((le*len(r_ind)+nsp, nat, 3), dtype=np.float32)
+        j = 0
+        for r, c in zip(r_ind, c_ind):
+            for k in np.arange(nat):
+                for s in np.arange(3):
+                    dB_nnl[j*le:(j+1)*le, k, s] = np.ravel(np.sum(parity*dAs[:, :, r, :, :, k, s] * As[:, :, c, :, ::-1], axis=-1).real)
+                    dB_nnl[j*le:(j+1)*le, k, s] += np.ravel(np.sum(parity*dAs[:, :, c, :, ::-1, k, s] * As[:, :, r, :, :], axis=-1).real)
+                j += 1
+    return B_nnl, dB_nnl
 
 
 class Descr25(Descriptor):
