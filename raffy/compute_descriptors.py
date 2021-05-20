@@ -418,7 +418,7 @@ def get_ace_single_atom(env, ns, ls, coefficients, species,
         return As, dAs
 
     else:
-        return As
+        return As, [0]
 
 
 def get_ace(structure, ns, ls, radial_cutoff, species,
@@ -428,9 +428,8 @@ def get_ace(structure, ns, ls, radial_cutoff, species,
     As = np.zeros([structure.nat, len(species), len(species), ns,
                    ls, ls*2-1], dtype='complex64')
 
-    if compute_dgvect:
-        dAs = np.zeros([structure.nat, len(species), len(species), ns,
-                       ls, ls*2 - 1, structure.nat, 3], dtype='complex64')
+    dAs = np.zeros([structure.nat, len(species), len(species), ns,
+                    ls, ls*2 - 1, structure.nat, 3], dtype='complex64')
 
     # Obtain local atomic cluster expansion and its derivatives
     for i in np.arange(structure.nat):
@@ -439,13 +438,10 @@ def get_ace(structure, ns, ls, radial_cutoff, species,
             As[i, ...], dAs[i, ...] = get_ace_single_atom(
                 env, ns, ls, coefficients, species, compute_dgvect, basis)
         else:
-            As[i, ...] = get_ace_single_atom(
+            As[i, ...], _ = get_ace_single_atom(
                 env, ns, ls, coefficients, species, compute_dgvect, basis)
 
-    if compute_dgvect:
-        return As, dAs
-    else:
-        return As, []
+    return As, dAs
 
 
 class Descriptor():
@@ -484,7 +480,10 @@ class Descriptor():
                 print("Using more than one core for a single structure will not \
 improve performance. \nSwitching to single core.")
             G, dG = self.compute_single_core(atoms, compute_dgvect)
-            G, dG = self.add_one_body_term(G, dG, atoms, compute_dgvect)
+            if compute_dgvect:
+                G, dG = self.add_one_body_term(G, dG, atoms, compute_dgvect)
+            else:
+                G, _ = self.add_one_body_term(G, None, atoms, compute_dgvect)
 
         return G, dG
 
@@ -681,7 +680,7 @@ def compute_multicore_helper_b2(radial_cutoff, ns, ls, species, coefficients,
 #         return B_nnl, []
 
 
-@njit(fastmath=True)
+@njit(fastmath=False)
 def get_B2_from_ace(parity, As, dAs=None, compute_dgvect=False):
     """ This is following the implementation from Drautz_2019.
     An implementation using complex conjugate following the
@@ -694,26 +693,26 @@ def get_B2_from_ace(parity, As, dAs=None, compute_dgvect=False):
     r_ind, c_ind = np.triu_indices(ns)
     le = ls*nsp*nsp
     B_nnl = np.zeros((nat, le*len(r_ind)+nsp), dtype=np.float32)
+    dB_nnl = np.zeros((nat, le*len(r_ind)+nsp, nat, 3), dtype=np.float32)
     for i in np.arange(nat):
         j = 0
         for r, c in zip(r_ind, c_ind):
-            B_nnl[i, j*le:(j+1)*le] = np.ravel(np.sum(As[i, :, :, r, :, :]*As[i, :, :, c, :, ::-1]*parity, axis = -1).real)
+            B_nnl[i, j*le:(j+1)*le] = np.ravel(np.sum(As[i, :, :, r, :, :]*As[i, :, :, c, :, ::-1]*parity, axis=3).real)
             j += 1
-
     if compute_dgvect:
-        dB_nnl = np.zeros((nat, le*len(r_ind)+nsp, nat, 3), dtype=np.float32)
         for i in np.arange(nat):
             j = 0
             for r, c in zip(r_ind, c_ind):
                 for k in np.arange(nat):
                     for s in np.arange(3):
-                        dB_nnl[i, j*le:(j+1)*le, k, s] = np.ravel(np.sum(parity*dAs[i, :, :, r, :, :, k, s] * As[i, :, :, c, :, ::-1], axis=-1).real)
-                        dB_nnl[i, j*le:(j+1)*le, k, s] += np.ravel(np.sum(parity*dAs[i, :, :, c, :, ::-1, k, s] * As[i, :, :, r, :, :], axis=-1).real)
+                        dB_nnl[i, j*le:(j+1)*le, k, s] = np.ravel(np.sum(dAs[i, :, :, r, :, :, k, s] * As[i, :, :, c, :, ::-1] * parity, axis=3).real)
+                        dB_nnl[i, j*le:(j+1)*le, k, s] += np.ravel(np.sum(As[i, :, :, r, :, :] * dAs[i, :, :, c, :, ::-1, k, s] * parity, axis=3).real)
                 j += 1
+
     return B_nnl, dB_nnl
 
 
-@njit(fastmath=True)
+@njit(fastmath=False)
 def get_B2_from_ace_single_atom(parity, As, dAs=None, compute_dgvect=False):
     ls = As.shape[3]
     ns = As.shape[2]
@@ -733,9 +732,9 @@ def get_B2_from_ace_single_atom(parity, As, dAs=None, compute_dgvect=False):
         for r, c in zip(r_ind, c_ind):
             for k in np.arange(nat):
                 for s in np.arange(3):
-                    dB_nnl[j*le:(j+1)*le, k, s] = np.ravel(np.sum(parity*dAs[:, :, r, :, :, k, s] * As[:, :, c, :, ::-1], axis=-1).real)
-                    dB_nnl[j*le:(j+1)*le, k, s] += np.ravel(np.sum(parity*dAs[:, :, c, :, ::-1, k, s] * As[:, :, r, :, :], axis=-1).real)
-                j += 1
+                    dB_nnl[j*le:(j+1)*le, k, s] = np.ravel(np.sum(dAs[:, :, r, :, :, k, s] * As[:, :, c, :, ::-1]*parity, axis=-1).real)
+                    dB_nnl[j*le:(j+1)*le, k, s] += np.ravel(np.sum(dAs[:, :, c, :, ::-1, k, s] * As[:, :, r, :, :]*parity, axis=-1).real)    
+            j += 1
     return B_nnl, dB_nnl
 
 
