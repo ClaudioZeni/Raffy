@@ -426,10 +426,10 @@ def get_ace(structure, ns, ls, radial_cutoff, species,
     # Precoumpute all factors that can be precomputed
 
     As = np.zeros([structure.nat, len(species), len(species), ns,
-                   ls, ls*2-1], dtype='complex64')
+                   ls, ls*2-1], dtype=np.complex64)
 
     dAs = np.zeros([structure.nat, len(species), len(species), ns,
-                    ls, ls*2 - 1, structure.nat, 3], dtype='complex64')
+                    ls, ls*2 - 1, structure.nat, 3], dtype=np.complex64)
 
     # Obtain local atomic cluster expansion and its derivatives
     for i in np.arange(structure.nat):
@@ -604,12 +604,13 @@ class Descr3(Descriptor):
 
     def compute_multi_core(self, structures, compute_dgvect=True, ncores=4):
         ray.init(num_cpus=ncores)
+        data_ref = ray.put(structures)
         g_, dg_ = [], []
-        for x in structures:
+        for i in np.arange(len(structures)):
             g__, dg__ = compute_multicore_helper_b2.remote(
                 self.rc, self.ns, self.ls, self.species,
                 self.coefficients, self.basis, self.gsize_partial,
-                x, compute_dgvect)
+                i, data_ref, compute_dgvect)
             g_.append(g__)
             dg_.append(dg__)
 
@@ -624,7 +625,8 @@ class Descr3(Descriptor):
 
 @ray.remote(num_returns=2)
 def compute_multicore_helper_b2(radial_cutoff, ns, ls, species, coefficients,
-                                basis, gsize, structure, compute_dgvect):
+                                basis, gsize, i, data_ref, compute_dgvect):
+    structure = data_ref[i]
     # Obtain the local atomic cluster expansions
     As, dAs = get_ace(structure, ns, ls, radial_cutoff,
                       species, coefficients, compute_dgvect, basis)
@@ -692,8 +694,8 @@ def get_B2_from_ace(parity, As, dAs=None, compute_dgvect=False):
     nsp = As.shape[1]
     r_ind, c_ind = np.triu_indices(ns)
     le = ls*nsp*nsp
-    B_nnl = np.zeros((nat, le*len(r_ind)+nsp), dtype=np.float32)
-    dB_nnl = np.zeros((nat, le*len(r_ind)+nsp, nat, 3), dtype=np.float32)
+    B_nnl = np.zeros((nat, le*len(r_ind)+nsp), dtype=np.float64)
+    dB_nnl = np.zeros((nat, le*len(r_ind)+nsp, nat, 3), dtype=np.float64)
     for i in np.arange(nat):
         j = 0
         for r, c in zip(r_ind, c_ind):
@@ -719,7 +721,7 @@ def get_B2_from_ace_single_atom(parity, As, dAs=None, compute_dgvect=False):
     nsp = As.shape[0]
     r_ind, c_ind = np.triu_indices(ns)
     le = ls*nsp*nsp
-    B_nnl = np.zeros((le*len(r_ind)+nsp), dtype=np.float32)
+    B_nnl = np.zeros((le*len(r_ind)+nsp), dtype=np.float64)
     j = 0
     for r, c in zip(r_ind, c_ind):
         B_nnl[j*le:(j+1)*le] = np.ravel(np.sum(As[:, :, r, :, :]*As[:, :, c, :, ::-1]*parity, axis = -1).real)
@@ -727,7 +729,7 @@ def get_B2_from_ace_single_atom(parity, As, dAs=None, compute_dgvect=False):
 
     if compute_dgvect:
         nat = dAs.shape[-2]
-        dB_nnl = np.zeros((le*len(r_ind)+nsp, nat, 3), dtype=np.float32)
+        dB_nnl = np.zeros((le*len(r_ind)+nsp, nat, 3), dtype=np.float64)
         j = 0
         for r, c in zip(r_ind, c_ind):
             for k in np.arange(nat):
@@ -793,12 +795,13 @@ class Descr25(Descriptor):
 
     def compute_multi_core(self, structures, compute_dgvect=True, ncores=4):
         ray.init(num_cpus=ncores)
+        data_ref = ray.put(structures)
         g_, dg_ = [], []
-        for x in structures:
+        for i in np.arange(len(structures)):
             g__, dg__ = compute_multicore_helper_sb.remote(
                 self.rc, self.ns, self.ls, self.species,
                 self.coefficients, self.basis, self.gsize_partial,
-                x, compute_dgvect)
+                i, data_ref, compute_dgvect)
             g_.append(g__)
             dg_.append(dg__)
 
@@ -813,8 +816,8 @@ class Descr25(Descriptor):
 
 @ray.remote(num_returns=2)
 def compute_multicore_helper_sb(radial_cutoff, ns, ls, species, coefficients,
-                                basis, gsize, structure, compute_dgvect):
-
+                                basis, gsize, i, data_ref, compute_dgvect):
+    structure = data_ref[i]
     # Obtain the local atomic cluster expansions
     As, dAs = get_ace(structure, ns, ls, radial_cutoff,
                       species, coefficients, compute_dgvect, basis)
@@ -993,12 +996,13 @@ class Descr23(Descriptor):
 
     def compute_multi_core(self, structures, compute_dgvect=True, ncores=4):
         ray.init(num_cpus=ncores)
+        data_ref = ray.put(structures)
         g_, dg_ = [], []
         for x in structures:
             g__, dg__ = compute_multicore_helper_mix.remote(
                 self.rc, self.ns2, self.ns3, self.ls, self.species,
                 self.coefficients_2, self.coefficients_3, self.basis,
-                self.gsize_2, self.gsize_3, x, compute_dgvect)
+                self.gsize_2, self.gsize_3, data_ref, i, compute_dgvect)
             g_.append(g__)
             dg_.append(dg__)
 
@@ -1014,8 +1018,9 @@ class Descr23(Descriptor):
 @ray.remote(num_returns=2)
 def compute_multicore_helper_mix(radial_cutoff, ns2, ns3, ls, species,
                                  coefficients_2, coefficients_3, basis,
-                                 gsize_2, gsize_3, structure, compute_dgvect):
-
+                                 gsize_2, gsize_3, data_ref, i,
+                                 compute_dgvect):
+    structure = data_ref[i]
     # Obtain the local atomic cluster expansions
     As3, dAs3 = get_ace(structure, ns3, ls, radial_cutoff,
                         species, coefficients_3, compute_dgvect, basis)
