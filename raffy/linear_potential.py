@@ -2,12 +2,12 @@ import json
 from pathlib import Path
 
 import numpy as np
-from sklearn.linear_model import Ridge
+from flare import struc
 from sklearn.decomposition import PCA
+from sklearn.linear_model import Ridge
 
 from . import compute_descriptors as cd
 from . import utils as ut
-from flare import struc
 
 
 class NpEncoder(json.JSONEncoder):
@@ -56,7 +56,7 @@ class LinearPotential():
             j = 0
             for i, x in enumerate(X):
                 dg2.extend(2*np.einsum('d, mcd -> mcd',
-                           g[i], dg[j:j+x.nat])/factor)
+                                       g[i], dg[j:j+x.nat])/factor)
                 j += x.nat
             dg2 = np.array(dg2)
         # Append squared descriptors

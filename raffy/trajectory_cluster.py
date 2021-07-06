@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import numpy as np
-from ase.io.extxyz import write_extxyz
 from flare.env import AtomicEnvironment
 from scipy.stats import gaussian_kde
 
@@ -80,8 +79,8 @@ def set_cutoff_radius(snapshot):
 
     """
     dists = [AtomicEnvironment(snapshot, i, {
-            'twobody': 3.5}).bond_array_2[:, 0]
-             for i in range(snapshot.nat)]
+        'twobody': 3.5}).bond_array_2[:, 0]
+        for i in range(snapshot.nat)]
     dists = np.array([item for sublist in dists for item in sublist])
     t = np.linspace(1.5, 3.5, 100)
     cut = t[np.argmax(gaussian_kde(dists)(t))]*1.75
