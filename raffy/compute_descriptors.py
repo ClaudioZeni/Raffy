@@ -428,8 +428,11 @@ def get_ace(structure, ns, ls, radial_cutoff, species,
     As = np.zeros([structure.nat, len(species), len(species), ns,
                    ls, ls*2-1], dtype=np.complex64)
 
-    dAs = np.zeros([structure.nat, len(species), len(species), ns,
-                    ls, ls*2 - 1, structure.nat, 3], dtype=np.complex64)
+    if compute_dgvect:
+        dAs = np.zeros([structure.nat, len(species), len(species), ns,
+                        ls, ls*2 - 1, structure.nat, 3], dtype=np.complex64)
+    else:
+        dAs = np.zeros(1, dtype=np.complex64)
 
     # Obtain local atomic cluster expansion and its derivatives
     for i in np.arange(structure.nat):
@@ -682,7 +685,7 @@ def compute_multicore_helper_b2(radial_cutoff, ns, ls, species, coefficients,
 #         return B_nnl, []
 
 
-@njit(fastmath=False)
+# @njit(fastmath=False)
 def get_B2_from_ace(parity, As, dAs=None, compute_dgvect=False):
     """ This is following the implementation from Drautz_2019.
     An implementation using complex conjugate following the
@@ -695,7 +698,10 @@ def get_B2_from_ace(parity, As, dAs=None, compute_dgvect=False):
     r_ind, c_ind = np.triu_indices(ns)
     le = ls*nsp*nsp
     B_nnl = np.zeros((nat, le*len(r_ind)+nsp), dtype=np.float64)
-    dB_nnl = np.zeros((nat, le*len(r_ind)+nsp, nat, 3), dtype=np.float64)
+    if compute_dgvect:
+        dB_nnl = np.zeros((nat, le*len(r_ind)+nsp, nat, 3), dtype=np.float64)
+    else:
+        dB_nnl = np.zeros(1)
     for i in np.arange(nat):
         j = 0
         for r, c in zip(r_ind, c_ind):
@@ -714,7 +720,7 @@ def get_B2_from_ace(parity, As, dAs=None, compute_dgvect=False):
     return B_nnl, dB_nnl
 
 
-@njit(fastmath=False)
+# @njit(fastmath=False)
 def get_B2_from_ace_single_atom(parity, As, dAs=None, compute_dgvect=False):
     ls = As.shape[3]
     ns = As.shape[2]

@@ -123,8 +123,6 @@ class LinearPotential():
         Y = ut.reshape_forces(Y)
         g, dg = self.get_g(X, g, dg, compute_forces, ncores,
                            train_pca=self.use_pca)
-        self.g = g
-        self.dg = dg
 
         if compute_forces:
             # Reshape to Nenv*3, D
@@ -146,8 +144,8 @@ class LinearPotential():
             Y_tot = Y
             self.force_fit = True
             self.energy_fit = False
+        del dg, g, Y, Y_en, X
 
-        # del dg, g, Y, Y_en, X
         # gtg = np.einsum('na, nb -> ab', g_tot, g_tot)
         # # Add regularization
         # reg = np.std(g_tot**2, axis=0) * np.eye(len(gtg))/1000
@@ -161,8 +159,6 @@ class LinearPotential():
         # alpha = cho_solve((L_, True), gY)
         # self.alpha = alpha
         # del gY, alpha, L_
-        self.g_tot = g_tot
-        self.Y_tot = Y_tot
 
         clf = Ridge(alpha=alpha, tol=1e-6)
         clf.fit(g_tot, Y_tot)
