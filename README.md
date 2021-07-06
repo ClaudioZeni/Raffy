@@ -17,7 +17,11 @@ The installation process should take 1 to 5 minutes on a standard laptop.
 
 
 ## Examples
-Two notebooks are available in the examples folder, one showcases the training and validation of a linear potential for Si, the other demonstrates how to use the Raffy package to classify local atomic environments on a sample MD trajectory of a Au nanoparticle.
+Three notebooks are available in the examples folder.
+Linear Potential showcases the training and validation of a linear potential for Si.
+Trajectory Clustering demonstrates how to use the Raffy package to classify local atomic environments on a sample MD trajectory of a Au nanoparticle.
+Hierarchical Clustering Tutorial guides the creation of a hierachical k-means clustering to differentiate local atomic environments in an Au nanoparticle.
+
 
 
 ## Dependancies
