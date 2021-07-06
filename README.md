@@ -21,7 +21,7 @@ Two notebooks are available in the examples folder, one showcases the training a
 
 
 ## Dependancies
-The package uses ASE to handle[a link](https://pypi.org/project/ase/) .xyz files, MIR-FLARE[a link](https://github.com/mir-group/flare) to handle local atomic environments, NUMPY[a link](https://numpy.org/) and SCIPY[a link](https://www.scipy.org/) for fast computation, and RAY[a link](https://ray.io/) for multiprocessing.
+The package uses [ASE](https://pypi.org/project/ase/) to handle .xyz files, [MIR-FLARE](https://github.com/mir-group/flare) to handle local atomic environments, [NUMPY](https://numpy.org/) and [SCIPY](https://www.scipy.org/) for fast computation, and [RAY](https://ray.io/) for multiprocessing.
 
 The package has been tested on Ubuntu 20.04.
 
