@@ -1,6 +1,10 @@
 # Raffy
 Ridge-regression Atomistic Force Fields in PYthon
 
+
+
+DOI : 10.5281/zenodo.5243000
+
 Use this package to train and validate force fields for single- and multi-element materials.
 The force fields are trained using ridge regression on local atomic environment descritptors computed in the "Atomic Cluster Expansion" (ACE) framework.
 The package can also be used to classify local atomic environments according to their ACE local descriptor.
